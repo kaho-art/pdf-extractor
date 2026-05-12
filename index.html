@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF テキスト抽出ツール</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: linear-gradient(135deg, #fce4ec 0%, #e8eaf6 40%, #e0f7fa 100%);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    color: #555;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 2rem 2rem 2.5rem;
+    max-width: 680px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(180,160,220,0.15);
+    border: 1.5px solid rgba(255,255,255,0.9);
+  }
+
+  .header { text-align: center; margin-bottom: 2rem; }
+  .header .icon-wrap {
+    width: 64px; height: 64px; border-radius: 18px;
+    background: linear-gradient(135deg, #f8bbd0, #ce93d8);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 30px; margin-bottom: 12px;
+    box-shadow: 0 4px 16px rgba(206,147,216,0.35);
+  }
+  .header h1 { font-size: 22px; font-weight: 700; color: #7b5ea7; margin-bottom: 6px; }
+  .header p { font-size: 13px; color: #a89bbf; }
+
+  .drop-zone {
+    border: 2px dashed #d4b8e8;
+    border-radius: 18px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    background: linear-gradient(135deg, #fdf6ff 0%, #f0f4ff 100%);
+    transition: all 0.2s;
+  }
+  .drop-zone:hover, .drop-zone.over {
+    border-color: #b39ddb;
+    background: linear-gradient(135deg, #f8eeff 0%, #e8edff 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(179,157,219,0.2);
+  }
+  .drop-zone .dz-icon { font-size: 42px; margin-bottom: 12px; display: block; }
+  .drop-zone .lbl { font-size: 15px; font-weight: 700; color: #9575cd; margin-bottom: 6px; }
+  .drop-zone .sub { font-size: 12px; color: #b0a0cc; }
+  #finput { display: none; }
+
+  .finfo {
+    display: none; align-items: center; gap: 12px;
+    padding: 12px 16px; margin-top: 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #fce4ec, #f3e5f5);
+    border: 1.5px solid #f8bbd0;
+  }
+  .finfo .pdf-icon { font-size: 26px; flex-shrink: 0; }
+  .finfo .fdetail .fname { font-size: 14px; font-weight: 700; color: #ad1457; }
+  .finfo .fdetail .fsize { font-size: 12px; color: #c2185b; opacity: 0.7; }
+  .rbtn {
+    margin-left: auto; background: rgba(255,255,255,0.7); border: 1.5px solid #f8bbd0;
+    color: #e57373; cursor: pointer; font-size: 16px;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .rbtn:hover { background: #fce4ec; }
+
+  .go-btn {
+    margin-top: 18px; width: 100%; padding: 14px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    border-radius: 14px; border: none;
+    background: linear-gradient(135deg, #ce93d8, #9575cd);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(149,117,205,0.35);
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+    letter-spacing: 0.05em;
+  }
+  .go-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(149,117,205,0.45); }
+  .go-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .prog {
+    display: none; margin-top: 16px; padding: 14px 18px;
+    border-radius: 14px; font-size: 13px;
+    align-items: center; gap: 12px;
+    background: linear-gradient(135deg, #e8eaf6, #e1f5fe);
+    border: 1.5px solid #c5cae9;
+    color: #5c6bc0;
+  }
+  .prog.show { display: flex; }
+  .prog-info { flex: 1; }
+  .prog-info .pmsg { font-weight: 500; margin-bottom: 6px; }
+  .pbar-track { height: 6px; background: rgba(92,107,192,0.15); border-radius: 3px; overflow: hidden; }
+  .pbar-fill { height: 100%; background: linear-gradient(90deg, #9fa8da, #7986cb); border-radius: 3px; transition: width 0.3s; }
+
+  .err {
+    display: none; margin-top: 16px; padding: 12px 16px;
+    border-radius: 14px; font-size: 13px;
+    align-items: center; gap: 10px;
+    background: #fff0f0; border: 1.5px solid #ffcdd2;
+    color: #c62828;
+  }
+  .err.show { display: flex; }
+
+  .result { display: none; margin-top: 22px; }
+  .result-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .rtitle { font-size: 15px; font-weight: 700; color: #7b5ea7; }
+  .rbtns { display: flex; gap: 8px; }
+  .rbtn2 {
+    font-size: 12px; font-weight: 700; padding: 7px 14px;
+    border-radius: 20px; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: all 0.15s;
+  }
+  .rbtn2.copy { background: linear-gradient(135deg, #b2ebf2, #80deea); color: #00696f; }
+  .rbtn2.save { background: linear-gradient(135deg, #c8e6c9, #a5d6a7); color: #1b5e20; }
+  .rbtn2:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+  .rbox {
+    border-radius: 14px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, #fafafa, #f5f0ff);
+    border: 1.5px solid #e1d5f5;
+    font-size: 13px; color: #444;
+    line-height: 1.75; white-space: pre-wrap;
+    max-height: 380px; overflow-y: auto;
+    font-family: 'Noto Sans JP', monospace;
+  }
+  .rbox::-webkit-scrollbar { width: 6px; }
+  .rbox::-webkit-scrollbar-track { background: #f5f0ff; border-radius: 3px; }
+  .rbox::-webkit-scrollbar-thumb { background: #d1b8f0; border-radius: 3px; }
+
+  .stats { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat-chip {
+    font-size: 12px; font-weight: 500;
+    padding: 4px 12px; border-radius: 20px;
+    background: linear-gradient(135deg, #f3e5f5, #ede7f6);
+    color: #7b5ea7; border: 1px solid #e1bee7;
+  }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 3px solid rgba(92,107,192,0.25);
+    border-top-color: #5c6bc0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="icon-wrap">📄</div>
+    <h1>PDF テキスト抽出ツール</h1>
+    <p>PDFをアップロードするだけで自動的にテキストを取り出せます</p>
+  </div>
+
+  <div class="drop-zone" id="dz">
+    <input type="file" id="finput" accept=".pdf,application/pdf">
+    <span class="dz-icon">🗂️</span>
+    <div class="lbl">PDFをここにドラッグ＆ドロップ</div>
+    <div class="sub">またはクリックしてファイルを選択（PDF形式のみ）</div>
+  </div>
+
+  <div class="finfo" id="finfo">
+    <span class="pdf-icon">📕</span>
+    <div class="fdetail">
+      <div class="fname" id="fname">—</div>
+      <div class="fsize" id="fsize">—</div>
+    </div>
+    <button class="rbtn" id="rbtn" aria-label="削除">✕</button>
+  </div>
+
+  <button class="go-btn" id="gobtn" disabled>✨ テキストを抽出する</button>
+
+  <div class="prog" id="prog">
+    <div class="spinner"></div>
+    <div class="prog-info">
+      <div class="pmsg" id="progmsg">読み込み中...</div>
+      <div class="pbar-track"><div class="pbar-fill" id="pbar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="err" id="errdiv">
+    ⚠️ <span id="errmsg"></span>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-header">
+      <div class="rtitle">🎉 抽出完了！</div>
+      <div class="rbtns">
+        <button class="rbtn2 copy" id="copybtn">📋 コピー</button>
+        <button class="rbtn2 save" id="savebtn">💾 保存</button>
+      </div>
+    </div>
+    <div class="rbox" id="rbox"></div>
+    <div class="stats" id="statsDiv"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function() {
+  var selFile = null, extracted = '', selFileName = '';
+
+  var dz=document.getElementById('dz'), finput=document.getElementById('finput'),
+      finfo=document.getElementById('finfo'), fnameEl=document.getElementById('fname'),
+      fsizeEl=document.getElementById('fsize'), rbtn=document.getElementById('rbtn'),
+      gobtn=document.getElementById('gobtn'), prog=document.getElementById('prog'),
+      progmsg=document.getElementById('progmsg'), pbar=document.getElementById('pbar'),
+      errdiv=document.getElementById('errdiv'), errmsg=document.getElementById('errmsg'),
+      result=document.getElementById('result'), rbox=document.getElementById('rbox'),
+      statsDiv=document.getElementById('statsDiv'),
+      copybtn=document.getElementById('copybtn'), savebtn=document.getElementById('savebtn');
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  dz.addEventListener('click', function(){ finput.click(); });
+  dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', function(){ dz.classList.remove('over'); });
+  dz.addEventListener('drop', function(e){
+    e.preventDefault(); dz.classList.remove('over');
+    var f=e.dataTransfer.files[0];
+    if(f && f.type==='application/pdf') setFile(f); else showErr('PDFファイルのみ対応しています');
+  });
+  finput.addEventListener('change', function(e){ if(e.target.files[0]) setFile(e.target.files[0]); });
+  rbtn.addEventListener('click', clearFile);
+  gobtn.addEventListener('click', doExtract);
+
+  copybtn.addEventListener('click', function(){
+    if(!extracted) return;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(extracted).then(function(){
+        copybtn.textContent='✅ コピー完了';
+        setTimeout(function(){ copybtn.innerHTML='📋 コピー'; },1500);
+      }).catch(fallbackCopy);
+    } else { fallbackCopy(); }
+  });
+
+  savebtn.addEventListener('click', function(){
+    if(!extracted) return;
+    var blob=new Blob([extracted],{type:'text/plain;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url; a.download=(selFileName.replace(/\.pdf$/i,'')||'extracted')+'_text.txt';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+  });
+
+  function fallbackCopy(){
+    var ta=document.createElement('textarea');
+    ta.value=extracted; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try{
+      document.execCommand('copy');
+      copybtn.textContent='✅ コピー完了';
+      setTimeout(function(){ copybtn.innerHTML='📋 コピー'; },1500);
+    }catch(e){}
+    document.body.removeChild(ta);
+  }
+
+  function setFile(f){
+    selFile=f; selFileName=f.name;
+    fnameEl.textContent=f.name; fsizeEl.textContent=(f.size/1024/1024).toFixed(2)+' MB';
+    finfo.style.display='flex'; gobtn.disabled=false;
+    prog.classList.remove('show'); errdiv.classList.remove('show');
+    result.style.display='none'; extracted='';
+  }
+
+  function clearFile(){
+    selFile=null; selFileName=''; extracted=''; finput.value='';
+    finfo.style.display='none'; gobtn.disabled=true;
+    prog.classList.remove('show'); errdiv.classList.remove('show'); result.style.display='none';
+  }
+
+  function showErr(msg){ prog.classList.remove('show'); errmsg.textContent=msg; errdiv.classList.add('show'); }
+
+  function doExtract(){
+    if(!selFile) return;
+    gobtn.disabled=true; result.style.display='none';
+    errdiv.classList.remove('show'); prog.classList.add('show');
+    progmsg.textContent='PDFを読み込み中...'; pbar.style.width='10%'; extracted='';
+
+    var reader=new FileReader();
+    reader.onload=function(e){
+      pbar.style.width='25%'; progmsg.textContent='PDFを解析中...';
+      pdfjsLib.getDocument({data:e.target.result}).promise.then(function(pdf){
+        var total=pdf.numPages, pages=[], idx=1;
+        function next(){
+          if(idx>total){
+            extracted=pages.join('\n\n').trim();
+            pbar.style.width='100%'; progmsg.textContent='完了！';
+            setTimeout(function(){
+              prog.classList.remove('show');
+              rbox.textContent=extracted;
+              var c=extracted.length, l=extracted.split('\n').length, w=extracted.split(/\s+/).filter(Boolean).length;
+              statsDiv.innerHTML=
+                '<div class="stat-chip">📄 '+total+'ページ</div>'+
+                '<div class="stat-chip">🔤 '+c.toLocaleString()+'文字</div>'+
+                '<div class="stat-chip">📝 '+l.toLocaleString()+'行</div>'+
+                '<div class="stat-chip">💬 '+w.toLocaleString()+'単語</div>';
+              result.style.display='block'; gobtn.disabled=false;
+            },300);
+            return;
+          }
+          pbar.style.width=Math.round(25+(idx/total)*70)+'%';
+          progmsg.textContent='ページ '+idx+' / '+total+' を処理中...';
+          pdf.getPage(idx).then(function(p){ return p.getTextContent(); }).then(function(ct){
+            var t=ct.items.map(function(i){ return i.str; }).join(' ');
+            pages.push('--- ページ '+idx+' ---\n'+t);
+            idx++; next();
+          }).catch(function(err){ showErr('ページエラー: '+err.message); gobtn.disabled=false; });
+        }
+        next();
+      }).catch(function(err){ showErr('PDF解析エラー: '+err.message); gobtn.disabled=false; });
+    };
+    reader.onerror=function(){ showErr('ファイルの読み込みに失敗しました'); gobtn.disabled=false; };
+    reader.readAsArrayBuffer(selFile);
+  }
+})();
+</script>
+</body>
+</html>
