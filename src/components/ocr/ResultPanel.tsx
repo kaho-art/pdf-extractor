@@ -32,9 +32,8 @@ export function ResultPanel({ result, highlightedBlock, onBlockHover, onBlockCli
   };
 
   const handleDownload = () => {
-    const ext = { plain: "txt", markdown: "md", json: "json" }[
-      result.outputFormat ?? "plain"
-    ] ?? "txt";
+    const extMap: Record<string, string> = { plain: "txt", markdown: "md", json: "json" };
+    const ext = extMap[result.outputFormat ?? "plain"] ?? "txt";
     const blob = new Blob([result.fullText], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
