@@ -64,6 +64,7 @@ export interface OCRResult {
   detectedDirection?: TextDirection;
   detectedColumns?: number;
   processingTime: number;
+  outputFormat?: OutputFormat;
 }
 
 export interface HighlightedRegion {
